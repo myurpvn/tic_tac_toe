@@ -32,17 +32,9 @@ CENTERS = {
 }
 
 
-class Game:
+class Board:
     def __init__(self) -> None:
-        self.game_over = False
-        self.draw = False
-        self.winner = ""
-
-
-class Player:
-    def __init__(self) -> None:
-        self.name = ""
-        self.centers = {
+        self.state = {
             "c_1": False,
             "c_2": False,
             "c_3": False,
@@ -53,24 +45,31 @@ class Player:
             "c_8": False,
             "c_9": False,
         }
+
+    def update(self, center) -> str:
+        if center != "" and (not self.state[center]):
+            self.state[center] = True
+        return center
+
+
+class Game:
+    def __init__(self) -> None:
+        self.game_over = False
+        self.draw = False
+        self.winner = ""
+
+
+class Player:
+    def __init__(self) -> None:
+        self.name = ""
+        self.centers = []
         self.won = False
         self.turn = False
 
-    def get_centers(self) -> None:
-        click = pygame.mouse.get_pressed()
-        if click[0]:
-            pos = pygame.mouse.get_pos()
-            min_dist = 9999
-            center = ""
-
-            for i in CENTERS:
-                dist = pygame.math.Vector2(pos).distance_to(CENTERS[i])
-                if dist < min_dist:
-                    min_dist = dist
-                    center = i
-
-            if not self.centers[center]:
-                self.centers[center] = True
+    def add_center(self, center) -> bool:
+        if center != "":
+            self.centers.append(center)
+            return True
 
 
 class Circle(Player):
@@ -81,10 +80,9 @@ class Circle(Player):
 
     def draw(self, surface) -> None:
         for center in self.centers:
-            if self.centers[center]:
-                pygame.draw.circle(
-                    surface, color="red", center=CENTERS[center], radius=40, width=5
-                )
+            pygame.draw.circle(
+                surface, color="red", center=CENTERS[center], radius=40, width=5
+            )
 
 
 class Cross(Player):
@@ -94,34 +92,29 @@ class Cross(Player):
 
     def draw(self, surface) -> None:
         for center in self.centers:
-            if self.centers[center]:
 
-                line_1_start = pygame.Vector2(
-                    CENTERS[center].x + 40, CENTERS[center].y + 40
-                )
-                line_1_end = pygame.Vector2(
-                    CENTERS[center].x - 40, CENTERS[center].y - 40
-                )
-                line_2_start = pygame.Vector2(
-                    CENTERS[center].x + 40, CENTERS[center].y - 40
-                )
-                line_2_end = pygame.Vector2(
-                    CENTERS[center].x - 40, CENTERS[center].y + 40
-                )
+            line_1_start = pygame.Vector2(
+                CENTERS[center].x + 40, CENTERS[center].y + 40
+            )
+            line_1_end = pygame.Vector2(CENTERS[center].x - 40, CENTERS[center].y - 40)
+            line_2_start = pygame.Vector2(
+                CENTERS[center].x + 40, CENTERS[center].y - 40
+            )
+            line_2_end = pygame.Vector2(CENTERS[center].x - 40, CENTERS[center].y + 40)
 
-                lines = {
-                    "line_1": (line_1_start, line_1_end),
-                    "line_2": (line_2_start, line_2_end),
-                }
+            lines = {
+                "line_1": (line_1_start, line_1_end),
+                "line_2": (line_2_start, line_2_end),
+            }
 
-                for line in lines:
-                    pygame.draw.line(
-                        surface,
-                        color="blue",
-                        start_pos=lines[line][0],
-                        end_pos=lines[line][1],
-                        width=5,
-                    )
+            for line in lines:
+                pygame.draw.line(
+                    surface,
+                    color="blue",
+                    start_pos=lines[line][0],
+                    end_pos=lines[line][1],
+                    width=5,
+                )
 
 
 def generate_grid() -> None:
@@ -147,29 +140,31 @@ def generate_grid() -> None:
 
 
 def check_win(player: Player, game: Game) -> bool:
-    if (
-        (player.centers["c_1"] and player.centers["c_2"] and player.centers["c_3"])
-        or (player.centers["c_4"] and player.centers["c_5"] and player.centers["c_6"])
-        or (player.centers["c_7"] and player.centers["c_8"] and player.centers["c_9"])
-        or (player.centers["c_1"] and player.centers["c_4"] and player.centers["c_7"])
-        or (player.centers["c_2"] and player.centers["c_5"] and player.centers["c_8"])
-        or (player.centers["c_3"] and player.centers["c_6"] and player.centers["c_9"])
-        or (player.centers["c_1"] and player.centers["c_5"] and player.centers["c_9"])
-        or (player.centers["c_3"] and player.centers["c_5"] and player.centers["c_7"])
-    ):
-        player.won = True
-        game.winner = player.name
-        game_music.stop()
-        victory_music.play(-1)
+    if len(player.centers) >= 3:
+        player.centers.sort()
+        centers_string = "+".join(player.centers)
+        if (
+            ("c_1+c_2+c_3" in centers_string)
+            or ("c_4+c_5+c_6" in centers_string)
+            or ("c_7+c_8+c_9" in centers_string)
+            or ("c_1+c_4+c_7" in centers_string)
+            or ("c_2+c_5+c_8" in centers_string)
+            or ("c_3+c_6+c_9" in centers_string)
+            or ("c_1+c_5+c_9" in centers_string)
+            or ("c_3+c_5+c_7" in centers_string)
+        ):
+            player.won = True
+            game.winner = player.name
+            game_music.stop()
+            victory_music.play(-1)
 
     return player.won
 
 
-def check_draw(player_1: Circle, player_2: Cross, game: Game) -> bool:
-    true_centers = [i for i in player_1.centers if player_1.centers[i]] + [
-        i for i in player_2.centers if player_2.centers[i]
-    ]
-    if len(true_centers) == 9:
+def check_draw(board: Board, game: Game) -> bool:
+    state = [i for i in board.state if board.state[i]]
+
+    if len(state) == 9:
         game.draw = True
         game_music.stop()
         draw_music.play(-1)
@@ -177,25 +172,50 @@ def check_draw(player_1: Circle, player_2: Cross, game: Game) -> bool:
     return game.draw
 
 
+def get_center() -> str:
+    click = pygame.mouse.get_pressed()
+    center = ""
+
+    if click[0]:
+        pos = pygame.mouse.get_pos()
+        min_dist = 9999
+        for i in CENTERS:
+            dist = pygame.math.Vector2(pos).distance_to(CENTERS[i])
+            if dist < min_dist:
+                min_dist = dist
+                center = i
+
+    return center
+
+
+def switch_turn(circle: Circle, cross: Cross) -> None:
+    circle.turn = not circle.turn
+    cross.turn = not cross.turn
+
+
 game_music.play(-1)
 game = Game()
+board = Board()
 circle = Circle()
 cross = Cross()
 
 while running:
     for event in pygame.event.get():
+
         if event.type == pygame.QUIT:
             running = False
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if not game.game_over:
-                if circle.turn:
-                    circle.turn = False
-                    cross.turn = True
-                    circle.get_centers()
-                elif cross.turn:
-                    cross.turn = False
-                    circle.turn = True
-                    cross.get_centers()
+                valid = False
+                center = board.update(get_center())
+                if circle.turn and center not in cross.centers:
+                    valid = circle.add_center(center)
+                elif cross.turn and center not in circle.centers:
+                    valid = cross.add_center(center)
+
+                if valid:
+                    switch_turn(circle, cross)
 
     screen.fill("grey")
     generate_grid()
@@ -211,7 +231,7 @@ while running:
         screen.blit(text, screen_center)
         game.game_over = True
     else:
-        if game.draw or check_draw(circle, cross, game):
+        if game.draw or check_draw(board, game):
             text = font.render("Draw", True, "green", "blue")
             screen.blit(text, screen_center)
             game.game_over = True
