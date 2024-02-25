@@ -7,7 +7,7 @@ A simple python game of tic-tac-toe
  1. Install poetry
 `pip install poetry`
 
- 2. Install .toml file
+ 2. Install dependencies
 `poetry install --no-root --without dev`
 
  3. Run main file
