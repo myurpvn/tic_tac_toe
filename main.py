@@ -12,12 +12,11 @@ screen = pygame.display.set_mode(screen_size)
 clock = pygame.time.Clock()
 
 font = pygame.font.Font("freesansbold.ttf", 32)
+debug_font = pygame.font.Font("freesansbold.ttf", 20)
 game_music = pygame.mixer.Sound("sound/hot_pursuit.mp3")
 victory_music = pygame.mixer.Sound("sound/new_hero_in_town.mp3")
 draw_music = pygame.mixer.Sound("sound/dark_star.mp3")
 
-running = True
-dt = 0
 
 CENTERS = {
     "c_1": pygame.Vector2(half_width - 100, half_height + 100),
@@ -55,6 +54,7 @@ class Board:
 class Game:
     def __init__(self) -> None:
         self.game_over = False
+        self.turn = "circle"
         self.draw = False
         self.winner = ""
 
@@ -117,6 +117,16 @@ class Cross(Player):
                 )
 
 
+def debug(players: list[Player]) -> None:
+
+    for center in CENTERS:
+        text = debug_font.render(center, True, "black", "white")
+        screen.blit(text, CENTERS[center])
+
+    for player in players:
+        print(f"{player.name}: {player.centers}")
+
+
 def generate_grid() -> None:
     lines = {
         "line_1_s": pygame.Vector2(half_width + 150, half_height - 50),
@@ -142,16 +152,17 @@ def generate_grid() -> None:
 def check_win(player: Player, game: Game) -> bool:
     if len(player.centers) >= 3:
         player.centers.sort()
-        centers_string = "+".join(player.centers)
+        centers_set = set(player.centers)
+
         if (
-            ("c_1+c_2+c_3" in centers_string)
-            or ("c_4+c_5+c_6" in centers_string)
-            or ("c_7+c_8+c_9" in centers_string)
-            or ("c_1+c_4+c_7" in centers_string)
-            or ("c_2+c_5+c_8" in centers_string)
-            or ("c_3+c_6+c_9" in centers_string)
-            or ("c_1+c_5+c_9" in centers_string)
-            or ("c_3+c_5+c_7" in centers_string)
+            ("c_1" in centers_set and "c_2" in centers_set and "c_3" in centers_set)
+            or ("c_4" in centers_set and "c_5" in centers_set and "c_6" in centers_set)
+            or ("c_7" in centers_set and "c_8" in centers_set and "c_9" in centers_set)
+            or ("c_1" in centers_set and "c_4" in centers_set and "c_7" in centers_set)
+            or ("c_2" in centers_set and "c_5" in centers_set and "c_8" in centers_set)
+            or ("c_3" in centers_set and "c_6" in centers_set and "c_9" in centers_set)
+            or ("c_1" in centers_set and "c_5" in centers_set and "c_9" in centers_set)
+            or ("c_3" in centers_set and "c_5" in centers_set and "c_7" in centers_set)
         ):
             player.won = True
             game.winner = player.name
@@ -188,56 +199,64 @@ def get_center() -> str:
     return center
 
 
-def switch_turn(circle: Circle, cross: Cross) -> None:
+def switch_turn(circle: Circle, cross: Cross, game: Game) -> None:
     circle.turn = not circle.turn
     cross.turn = not cross.turn
+    game.turn = "circle" if circle.turn else "cross"
 
 
-game_music.play(-1)
-game = Game()
-board = Board()
-circle = Circle()
-cross = Cross()
+if __name__ == "__main__":
 
-while running:
-    for event in pygame.event.get():
+    running = True
+    dt = 0
 
-        if event.type == pygame.QUIT:
-            running = False
+    game_music.play(-1)
 
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if not game.game_over:
-                valid = False
-                center = board.update(get_center())
-                if circle.turn and center not in cross.centers:
-                    valid = circle.add_center(center)
-                elif cross.turn and center not in circle.centers:
-                    valid = cross.add_center(center)
+    game = Game()
+    board = Board()
+    circle = Circle()
+    cross = Cross()
 
-                if valid:
-                    switch_turn(circle, cross)
+    while running:
+        for event in pygame.event.get():
 
-    screen.fill("grey")
-    generate_grid()
-    circle.draw(screen)
-    cross.draw(screen)
+            if event.type == pygame.QUIT:
+                running = False
 
-    if circle.won or check_win(circle, game):
-        text = font.render("Circle Wins", True, "green", "blue")
-        screen.blit(text, screen_center)
-        game.game_over = True
-    elif cross.won or check_win(cross, game):
-        text = font.render("Cross Wins", True, "green", "blue")
-        screen.blit(text, screen_center)
-        game.game_over = True
-    else:
-        if game.draw or check_draw(board, game):
-            text = font.render("Draw", True, "green", "blue")
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if not game.game_over:
+                    valid = False
+                    center = board.update(get_center())
+                    if circle.turn and center not in cross.centers:
+                        valid = circle.add_center(center)
+                    elif cross.turn and center not in circle.centers:
+                        valid = cross.add_center(center)
+
+                    if valid:
+                        switch_turn(circle, cross, game)
+
+        screen.fill("grey")
+        generate_grid()
+        # debug([circle, cross])
+        circle.draw(screen)
+        cross.draw(screen)
+
+        if circle.won or check_win(circle, game):
+            text = font.render("Circle Wins", True, "green", "blue")
             screen.blit(text, screen_center)
             game.game_over = True
+        elif cross.won or check_win(cross, game):
+            text = font.render("Cross Wins", True, "green", "blue")
+            screen.blit(text, screen_center)
+            game.game_over = True
+        else:
+            if game.draw or check_draw(board, game):
+                text = font.render("Draw", True, "green", "blue")
+                screen.blit(text, screen_center)
+                game.game_over = True
 
-    pygame.display.flip()
+        pygame.display.flip()
 
-    dt = clock.tick(60) / 1000
+        dt = clock.tick(60) / 1000
 
-pygame.quit()
+    pygame.quit()
